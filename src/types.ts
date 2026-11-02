@@ -51,6 +51,6 @@ export interface McpServerOptions<D = unknown> {
   authorize?(principal: McpPrincipal<D>, tool: AnyMcpTool<D>): boolean | Promise<boolean>;
   runTool?(principal: McpPrincipal<D>, tool: AnyMcpTool<D>, execute: () => Promise<unknown>): Promise<unknown>;
   mapError?(error: unknown): McpErrorResult;
-  onToolSettled?(event: McpToolSettled<D>): void;
+  onToolSettled?(event: McpToolSettled<D>): void | Promise<void>;
   responses?: { forbidden?: unknown };
 }

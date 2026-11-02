@@ -31,7 +31,8 @@ export function buildMcpServer<D>(
 
   const settle = (tool: AnyMcpTool<D>, status: number, error?: unknown) => {
     try {
-      options.onToolSettled?.({ tool, principal, status, error });
+      // async 훅의 reject 도 흡수한다(unhandled rejection 방지).
+      void Promise.resolve(options.onToolSettled?.({ tool, principal, status, error })).catch(() => {});
     } catch {
       // 기록 훅 실패가 도구 결과를 바꾸지 않는다.
     }

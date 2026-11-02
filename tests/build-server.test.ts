@@ -75,7 +75,7 @@ describe("buildMcpServer", () => {
     const events: McpToolSettled<unknown>[] = [];
     const client = await connect(
       [tool({ action: "DELETE" })],
-      { ...base, responses: { forbidden: { code: "NO" } }, onToolSettled: (e) => events.push(e) },
+      { ...base, responses: { forbidden: { code: "NO" } }, onToolSettled: (e) => { events.push(e); } },
       principal(["READ"]),
     );
     const r = await call(client, "echo");
@@ -123,7 +123,7 @@ describe("buildMcpServer", () => {
           },
         }),
       ],
-      { ...base, onToolSettled: (e) => events.push(e) },
+      { ...base, onToolSettled: (e) => { events.push(e); } },
       principal(["READ"]),
     );
     const r = await call(client, "echo");
@@ -144,7 +144,7 @@ describe("buildMcpServer", () => {
           },
         }),
       ],
-      { ...base, mapError: () => ({ status: 503, body: { msg: "later" } }), onToolSettled: (e) => events.push(e) },
+      { ...base, mapError: () => ({ status: 503, body: { msg: "later" } }), onToolSettled: (e) => { events.push(e); } },
       principal(["READ"]),
     );
     const r = await call(client, "echo");
@@ -179,9 +179,29 @@ describe("buildMcpServer", () => {
     expect(r.isError).toBeUndefined();
   });
 
+  it("onToolSettled 가 reject 해도 도구 결과는 유지되고 unhandled rejection 이 없다", async () => {
+    const unhandled: unknown[] = [];
+    const listener = (e: unknown) => unhandled.push(e);
+    process.on("unhandledRejection", listener);
+    try {
+      const client = await connect(
+        [tool()],
+        { ...base, onToolSettled: async () => Promise.reject(new Error("hook")) },
+        principal(["READ"]),
+      );
+      const r = await call(client, "echo");
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(r.content[0].text).toBe('{"a":1}');
+      expect(r.isError).toBeUndefined();
+      expect(unhandled).toEqual([]);
+    } finally {
+      process.off("unhandledRejection", listener);
+    }
+  });
+
   it("성공 시 status 200 으로 settled 한다", async () => {
     const events: McpToolSettled<unknown>[] = [];
-    const client = await connect([tool()], { ...base, onToolSettled: (e) => events.push(e) }, principal(["READ"]));
+    const client = await connect([tool()], { ...base, onToolSettled: (e) => { events.push(e); } }, principal(["READ"]));
     await call(client, "echo");
     expect(events[0]).toMatchObject({ status: 200, tool: { name: "echo" } });
     expect(events[0].error).toBeUndefined();
