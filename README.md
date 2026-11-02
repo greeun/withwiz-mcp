@@ -10,6 +10,7 @@ pnpm add @withwiz/mcp @modelcontextprotocol/sdk zod
 
 ```ts
 // app/api/mcp/route.ts (Next.js)
+// `db`, `findToken`, `toErrorResult` and `withRateLimit` are app-defined, not part of this package.
 import { z } from "zod";
 import { createMcpHandler, defineTool } from "@withwiz/mcp";
 
@@ -33,7 +34,7 @@ const handler = createMcpHandler({
       ? { userId: token.userId, tokenId: token.id, actions: token.actions }
       : null;
   },
-  // You own error mapping: hide 5xx details here.
+  // You own error mapping: return { status: number; body: unknown } and hide 5xx details here.
   mapError: (error) => toErrorResult(error),
 });
 
@@ -53,7 +54,7 @@ claude mcp add --transport http my-app https://example.com/api/mcp \
 - POST only. GET and DELETE return 405 with `Allow: POST`.
 - Bearer only. Cookies are never read; `Authorization: Bearer` is the sole credential.
 - Permission is per tool `action` (`READ`, `WRITE`, `DELETE`), checked against `principal.actions`, not by HTTP method.
-- `authorize` fails closed: a rejected or throwing check denies the call.
+- `authorize` fails closed: a rejected or throwing check denies the call. If you do not set it, the call is judged by `principal.actions`, and it is denied when the tool `action` is not listed or `actions` is absent.
 - Failures are returned as `isError` tool results, not protocol errors.
 - `mapError` decides what an error looks like to the client. Use it to hide 5xx details; raw exceptions are never exposed.
 - Hooks (`authorize`, `runTool`, `onToolSettled`) receive the principal, never the raw token.

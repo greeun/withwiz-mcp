@@ -10,6 +10,7 @@ pnpm add @withwiz/mcp @modelcontextprotocol/sdk zod
 
 ```ts
 // app/api/mcp/route.ts (Next.js)
+// `db`, `findToken`, `toErrorResult`, `withRateLimit` 는 앱이 직접 구현하는 함수이며 이 패키지에 없다.
 import { z } from "zod";
 import { createMcpHandler, defineTool } from "@withwiz/mcp";
 
@@ -33,7 +34,7 @@ const handler = createMcpHandler({
       ? { userId: token.userId, tokenId: token.id, actions: token.actions }
       : null;
   },
-  // 오류 변환은 앱 책임이다: 5xx 상세는 여기서 숨긴다.
+  // 오류 변환은 앱 책임이다: { status: number; body: unknown } 를 반환하고 5xx 상세는 여기서 숨긴다.
   mapError: (error) => toErrorResult(error),
 });
 
@@ -53,7 +54,7 @@ claude mcp add --transport http my-app https://example.com/api/mcp \
 - POST 만 받습니다. GET 과 DELETE 는 `Allow: POST` 와 함께 405 를 반환합니다.
 - Bearer 만 받습니다. 쿠키는 읽지 않으며 `Authorization: Bearer` 가 유일한 자격 증명입니다.
 - 권한은 HTTP 메서드가 아니라 도구별 `action`(`READ`, `WRITE`, `DELETE`)을 `principal.actions` 와 대조해 판정합니다.
-- `authorize` 는 fail-closed 입니다. 거부하거나 예외가 나면 호출이 차단됩니다.
+- `authorize` 는 fail-closed 입니다. 거부하거나 예외가 나면 호출이 차단됩니다. 지정하지 않으면 `principal.actions` 로 판정하며, 도구의 `action` 이 목록에 없거나 `actions` 가 없으면 거부합니다.
 - 실패는 프로토콜 오류가 아니라 `isError` 도구 결과로 반환합니다.
 - 클라이언트에게 보이는 오류 형태는 `mapError` 가 정합니다. 5xx 상세를 숨기는 일은 여기서 합니다. 원본 예외는 노출되지 않습니다.
 - 훅(`authorize`, `runTool`, `onToolSettled`)은 principal 만 받고 토큰 원문은 받지 않습니다.
