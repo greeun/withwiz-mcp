@@ -42,6 +42,8 @@ export interface McpToolSettled<D = unknown> {
   tool: AnyMcpTool<D>;
   principal: McpPrincipal<D>;
   status: number;
+  /** authorize 가 거부해 도구가 실행되지 않았을 때만 true(도구 내부 오류가 403 으로 매핑된 경우는 아니다). */
+  denied?: boolean;
   /** 원본 예외(응답에는 노출되지 않는다). */
   error?: unknown;
 }
