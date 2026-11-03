@@ -26,7 +26,11 @@ export interface ApiKeyAuthenticatorOptions {
   usage?: IUsageTracker;
   /** 지정해야 키의 IP 화이트리스트를 검사할 수 있다. */
   extractClientIp?(headers: Headers): string | undefined;
-  /** 도구 호출 1건을 소비 프로젝트가 저장한다(usage 와 무관하게 모든 tools/call). */
+  /**
+   * 실행된 도구 호출 1건을 소비 프로젝트가 저장한다(usage 와 무관).
+   * SDK 입력 검증은 execute 이전에 끝나므로 입력이 잘못된 호출은 authorize, onToolSettled 에 닿지 않아 기록되지 않는다.
+   * 거부된 호출도 기록하지 않는다.
+   */
   recordCall?(record: ApiKeyCallRecord): void | Promise<void>;
 }
 
@@ -48,15 +52,17 @@ export function createApiKeyAuthenticator(options: ApiKeyAuthenticatorOptions): 
   authorize: NonNullable<Handler["authorize"]>;
   onToolSettled: NonNullable<Handler["onToolSettled"]>;
 } {
-  const { service, usage, extractClientIp, recordCall } = options;
+  // 구조 분해하면 클래스 인스턴스 옵션의 메서드가 this 를 잃으므로 options 에서 직접 호출한다.
+  const { service, usage } = options;
 
   const authenticate: Handler["authenticate"] = async (rawToken, request) => {
     const result = await service.validateApiKey(rawToken);
     if (!result.valid || !result.apiKey || !result.user) return null;
     const { apiKey, user } = result;
 
-    const ip = extractClientIp?.(request.headers);
-    if (apiKey.ipWhitelist.length > 0) {
+    const ip = options.extractClientIp?.(request.headers);
+    // 캐시나 소비 저장소가 null 을 줄 수 있으므로 toolkit 미들웨어처럼 빈 목록으로 취급한다.
+    if (apiKey.ipWhitelist?.length) {
       // 화이트리스트가 있는데 IP 를 알 수 없으면 거부한다(fail-closed).
       if (!ip || !isIpAllowed(ip, apiKey.ipWhitelist)) return null;
     }
@@ -91,7 +97,7 @@ export function createApiKeyAuthenticator(options: ApiKeyAuthenticatorOptions): 
     await Promise.allSettled([
       Promise.resolve().then(() => service.trackUsage(principal.tokenId, ip)),
       Promise.resolve().then(() =>
-        recordCall?.({ apiKeyId: principal.tokenId, userId: principal.userId, tool: tool.name, status, ip }),
+        options.recordCall?.({ apiKeyId: principal.tokenId, userId: principal.userId, tool: tool.name, status, ip }),
       ),
     ]);
   };

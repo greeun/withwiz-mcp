@@ -90,6 +90,33 @@ describe("authenticate", () => {
     expect(await auth.authenticate("raw", req())).not.toBeNull();
   });
 
+  it("ipWhitelist 가 null 이어도 빈 목록처럼 통과한다", async () => {
+    const result = validResult();
+    (result.apiKey as { ipWhitelist: unknown }).ipWhitelist = null;
+    const { auth } = setup(result);
+    expect(await auth.authenticate("raw", req())).not.toBeNull();
+  });
+
+  it("extractClientIp, recordCall 을 옵션 객체의 메서드로 호출해 this 를 유지한다", async () => {
+    class Options {
+      calls: unknown[] = [];
+      ipHeader = "x-ip";
+      service = { validateApiKey: async () => validResult({ ipWhitelist: ["10.0.0.0/8"] }), trackUsage: async () => {} };
+      extractClientIp(h: Headers) {
+        return h.get(this.ipHeader) ?? undefined;
+      }
+      recordCall(r: unknown) {
+        this.calls.push(r);
+      }
+    }
+    const options = new Options();
+    const auth = createApiKeyAuthenticator(options);
+    const p = await principalOf({ ...auth } as never, req({ "x-ip": "10.1.1.1" }));
+    expect(p.data?.ip).toBe("10.1.1.1");
+    await auth.onToolSettled({ tool: tool("READ", "t"), principal: p, status: 200 });
+    expect(options.calls).toHaveLength(1);
+  });
+
   it("authenticate 는 canMakeApiCall 을 호출하지 않는다", async () => {
     const { auth, canMakeApiCall } = setup(validResult(), { usage: async () => ({ allowed: false }) as never });
     expect(await auth.authenticate("raw", req())).not.toBeNull();
