@@ -29,10 +29,10 @@ export function buildMcpServer<D>(
 ): McpServer {
   const server = new McpServer({ name: options.server.name, version: options.server.version });
 
-  const settle = (tool: AnyMcpTool<D>, status: number, error?: unknown) => {
+  const settle = (tool: AnyMcpTool<D>, status: number, error?: unknown, denied?: boolean) => {
     try {
       // async 훅의 reject 도 흡수한다(unhandled rejection 방지).
-      void Promise.resolve(options.onToolSettled?.({ tool, principal, status, error })).catch(() => {});
+      void Promise.resolve(options.onToolSettled?.({ tool, principal, status, error, ...(denied ? { denied } : {}) })).catch(() => {});
     } catch {
       // 기록 훅 실패가 도구 결과를 바꾸지 않는다.
     }
@@ -41,7 +41,7 @@ export function buildMcpServer<D>(
   const execute = async (tool: AnyMcpTool<D>, args: unknown): Promise<ToolResult> => {
     try {
       if (!(await isAllowed(options, principal, tool))) {
-        settle(tool, 403);
+        settle(tool, 403, undefined, true);
         return text(options.responses?.forbidden ?? DEFAULT_FORBIDDEN, true);
       }
       const run = () => tool.handler(args as never, { principal });

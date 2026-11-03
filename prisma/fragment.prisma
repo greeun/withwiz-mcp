@@ -1,0 +1,40 @@
+// @withwiz/mcp/tokens 용 ApiKey 모델 조각이다. 앱의 schema.prisma 에 복사해 붙인다.
+//
+// 1. 앱의 사용자 모델(User)과 연결하려면 아래 `user` relation 의 모델 이름을 앱에 맞게 바꾼다.
+// 2. 사용자 모델 쪽에도 역방향 필드를 추가한다.
+//      model User {
+//        // ...
+//        apiKeys ApiKey[]
+//      }
+// 3. `key` 에는 키 원문이 아니라 해시(64자)를 저장한다.
+// 4. `permissions` 값은 "read" | "write" | "delete" 이고, 도구 호출 1건을 기록하는 표는 포함하지 않는다.
+//    기록이 필요하면 앱이 `recordCall` 에서 자체 표에 저장한다.
+
+model ApiKey {
+  id             String    @id @default(cuid())
+  key            String    @unique @db.VarChar(64)
+  name           String    @db.VarChar(100)
+  userId         String
+  permissions    String[]  @default(["read", "write"])
+  rateLimit      Int       @default(1000)
+  lastUsedAt     DateTime?
+  usageCount     Int       @default(0)
+  isActive       Boolean   @default(true)
+  expiresAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  lastUsedIp     String?   @db.VarChar(45)
+  description    String?   @db.VarChar(500)
+  endpointLimits Json?
+  environment    String    @default("production") @db.VarChar(20)
+  ipWhitelist    String[]  @default([])
+  deletedAt      DateTime?
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([key])
+  @@index([userId])
+  @@index([isActive])
+  @@index([environment])
+  @@index([expiresAt])
+  @@index([deletedAt])
+}

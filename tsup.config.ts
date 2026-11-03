@@ -1,7 +1,7 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-  entry: ["src/index.ts"],
+  entry: { index: "src/index.ts", "tokens/index": "src/tokens/index.ts" },
   format: ["esm"],
   dts: true,
   sourcemap: false,
@@ -10,5 +10,5 @@ export default defineConfig({
   treeshake: true,
   target: "node22",
   platform: "node",
-  external: ["@modelcontextprotocol/sdk", "zod"],
+  external: ["@modelcontextprotocol/sdk", "zod", /^@withwiz\/toolkit/],
 });
