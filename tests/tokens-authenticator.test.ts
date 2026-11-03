@@ -152,12 +152,20 @@ describe("onToolSettled", () => {
     });
   });
 
-  it("usage 가 없어도 기록한다", async () => {
+  it("거부된 호출은 trackUsage 도 recordCall 도 호출하지 않는다", async () => {
+    const recordCall = vi.fn();
+    const { auth, service } = setup(validResult(), { recordCall });
+    await auth.onToolSettled({ tool: tool("READ"), principal: await principalOf(auth), status: 403, denied: true });
+    expect(service.trackUsage).not.toHaveBeenCalled();
+    expect(recordCall).not.toHaveBeenCalled();
+  });
+
+  it("usage 가 없어도 실행된 호출은 기록하고, 도구 내부 403 도 기록한다", async () => {
     const recordCall = vi.fn();
     const { auth, service } = setup(validResult(), { recordCall });
     await auth.onToolSettled({ tool: tool("READ"), principal: await principalOf(auth), status: 403 });
     expect(service.trackUsage).toHaveBeenCalledOnce();
-    expect(recordCall).toHaveBeenCalledOnce();
+    expect(recordCall).toHaveBeenCalledWith(expect.objectContaining({ status: 403 }));
   });
 
   it("trackUsage, recordCall 실패를 삼키고 서로 막지 않는다", async () => {
@@ -189,7 +197,7 @@ describe("onToolSettled", () => {
 
 describe("createMcpHandler 결합", () => {
   it("한도 초과 키로 tools/list 는 200, tools/call 은 isError", async () => {
-    const { auth } = setup(validResult(), { usage: async () => ({ allowed: false }) as never });
+    const { auth, service, canMakeApiCall } = setup(validResult(), { usage: async () => ({ allowed: false }) as never });
     const ping = defineTool<ApiKeyPrincipalData, {}>({
       name: "ping",
       description: "d",
@@ -212,9 +220,20 @@ describe("createMcpHandler 결합", () => {
         },
         body: JSON.stringify(body),
       });
+    const init = await h.POST(
+      rpc({
+        jsonrpc: "2.0",
+        id: 0,
+        method: "initialize",
+        params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "c", version: "1" } },
+      }),
+    );
+    expect(init.status).toBe(200);
     const list = await h.POST(rpc({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }));
     expect(list.status).toBe(200);
     expect(((await list.json()) as any).result.tools).toHaveLength(1); // eslint-disable-line @typescript-eslint/no-explicit-any
+    expect(canMakeApiCall).not.toHaveBeenCalled();
+    expect(service.trackUsage).not.toHaveBeenCalled();
     const call = await h.POST(
       rpc({ jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "ping", arguments: {} } }),
     );

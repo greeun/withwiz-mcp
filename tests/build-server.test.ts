@@ -82,6 +82,19 @@ describe("buildMcpServer", () => {
     expect(JSON.parse(r.content[0].text)).toEqual({ code: "NO" });
     expect(events).toHaveLength(1);
     expect(events[0].status).toBe(403);
+    expect(events[0].denied).toBe(true);
+  });
+
+  it("도구 내부 오류가 mapError 로 403 이 되어도 denied 가 아니다", async () => {
+    const events: McpToolSettled<unknown>[] = [];
+    const client = await connect(
+      [tool({ handler: async () => { throw new Error("x"); } })],
+      { ...base, mapError: () => ({ status: 403, body: {} }), onToolSettled: (e) => { events.push(e); } },
+      principal(["READ"]),
+    );
+    await call(client, "echo");
+    expect(events[0].status).toBe(403);
+    expect(events[0].denied).toBeUndefined();
   });
 
   it("기본 거부 본문은 Forbidden 이다", async () => {

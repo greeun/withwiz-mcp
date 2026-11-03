@@ -83,7 +83,9 @@ export function createApiKeyAuthenticator(options: ApiKeyAuthenticatorOptions): 
     }
   };
 
-  const onToolSettled: NonNullable<Handler["onToolSettled"]> = async ({ tool, principal, status }) => {
+  const onToolSettled: NonNullable<Handler["onToolSettled"]> = async ({ tool, principal, status, denied }) => {
+    // 거부된 호출은 실행되지 않았으므로 호출 수·한도·마지막 사용 정보에 반영하지 않는다.
+    if (denied) return;
     const ip = principal.data?.ip;
     // 둘 중 하나가 실패해도 다른 기록과 도구 결과에는 영향을 주지 않는다.
     await Promise.allSettled([
